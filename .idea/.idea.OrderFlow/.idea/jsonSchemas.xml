@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="JsonSchemaMappingsProjectConfiguration">
+    <state>
+      <map>
+        <entry key="appsettings.json">
+          <value>
+            <SchemaInfo>
+              <option name="name" value="appsettings.json" />
+              <option name="relativePathToSchema" value="https://www.schemastore.org/appsettings.json" />
+              <option name="applicationDefined" value="true" />
+              <option name="patterns">
+                <list>
+                  <Item>
+                    <option name="path" value="src/OrderFlow.Api/appsettings.Development.json" />
+                  </Item>
+                </list>
+              </option>
+            </SchemaInfo>
+          </value>
+        </entry>
+        <entry key="docker-compose.yml">
+          <value>
+            <SchemaInfo>
+              <option name="name" value="docker-compose.yml" />
+              <option name="relativePathToSchema" value="https://raw.githubusercontent.com/compose-spec/compose-go/master/schema/compose-spec.json" />
+              <option name="applicationDefined" value="true" />
+              <option name="patterns">
+                <list>
+                  <Item>
+                    <option name="path" value="docker-compose.yml" />
+                  </Item>
+                </list>
+              </option>
+            </SchemaInfo>
+          </value>
+        </entry>
+        <entry key="dotnet-tools.json">
+          <value>
+            <SchemaInfo>
+              <option name="name" value="dotnet-tools.json" />
+              <option name="relativePathToSchema" value="https://www.schemastore.org/dotnet-tools.json" />
+              <option name="applicationDefined" value="true" />
+              <option name="patterns">
+                <list>
+                  <Item>
+                    <option name="path" value="dotnet-tools.json" />
+                  </Item>
+                  <Item>
+                    <option name="path" value=".config/dotnet-tools.json" />
+                  </Item>
+                </list>
+              </option>
+            </SchemaInfo>
+          </value>
+        </entry>
+      </map>
+    </state>
+  </component>
+</project>

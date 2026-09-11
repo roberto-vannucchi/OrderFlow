@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="src/OrderFlow.Api/OrderFlow.Api.csproj" />
+  <Project Path="src/OrderFlow.Infrastructure/OrderFlow.Infrastructure.csproj" />
+</Solution>
