@@ -1,8 +1,19 @@
+using Mapster;
 using Microsoft.EntityFrameworkCore;
-using OrderFlow.Infrastructure.Domain;
+using OrderFlow.Application.Commands;
+using OrderFlow.Application.Queries;
 using OrderFlow.Infrastructure.Persistence;
+using Wolverine;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Host.UseWolverine(opts =>
+{
+    opts.Discovery.IncludeAssembly(typeof(CreateOrderCommand).Assembly);
+    opts.CodeGeneration.AlwaysUseServiceLocationFor<OrderFlowDbContext>();
+});
+
+TypeAdapterConfig.GlobalSettings.Scan(typeof(CreateOrderCommand).Assembly);
 
 // Add services to the container.
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
@@ -21,44 +32,22 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-var summaries = new[]
-{
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
 
-app.MapGet("/weatherforecast", () =>
-    {
-        var forecast = Enumerable.Range(1, 5).Select(index =>
-                new WeatherForecast
-                (
-                    DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-                    Random.Shared.Next(-20, 55),
-                    summaries[Random.Shared.Next(summaries.Length)]
-                ))
-            .ToArray();
-        return forecast;
-    })
-    .WithName("GetWeatherForecast");
 
-app.MapPost("/orders", async (CreateOrderRequest request, OrderFlowDbContext db) =>
+app.MapPost("/orders", async (CreateOrderRequest request, IMessageBus messageBus) =>
 {
-    var order = Order.Create(request.CustomerName, request.TotalAmount);
-    db.Orders.Add(order);
-    await db.SaveChangesAsync();
-    return Results.Created($"/orders/{order.Id}", order);
+    var command = request.Adapt<CreateOrderCommand>();
+    var orderId = await messageBus.InvokeAsync<Guid>(command);
+    return Results.Created($"/orders/{orderId}", new { id = orderId });
 });
 
-app.MapGet("/orders/{id:guid}", async (Guid id, OrderFlowDbContext db) =>
+app.MapGet("/orders/{id:guid}", async (Guid id, IMessageBus messageBus) =>
 {
-    var order = await db.Orders.AsNoTracking().FirstOrDefaultAsync(o => o.Id == id);
-    return order is not null ? Results.Ok(order) : Results.NotFound();
+    var query = new GetOrderQuery(id);
+    var order = await messageBus.InvokeAsync<OrderResponse?>(query);
+    return order == null ? Results.NotFound() : Results.Ok(order);
 });
 
 app.Run();
 
 record CreateOrderRequest(string CustomerName, decimal TotalAmount);
-
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}
