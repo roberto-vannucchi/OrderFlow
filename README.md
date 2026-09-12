@@ -1,73 +1,127 @@
 # OrderFlow
 
-Projeto de portfólio em .NET — domínio simples (pedidos), stack rica em tecnologia: CQRS, mensageria, observability.
+A .NET portfolio project — a deliberately simple domain (orders) paired with a technology-rich stack: CQRS, messaging, caching, observability.
+
+## Architecture
+
+Synchronous flow (HTTP request):
+
+```
+HTTP client
+        │
+        ▼
+┌────────────────┐
+│      Api       │
+└────────────────┘   HTTP endpoints
+        │
+        ▼
+┌────────────────┐
+│  Application   │
+└────────────────┘   CQRS (Wolverine) + Mapster
+        │
+        ▼
+┌────────────────┐
+│ Infrastructure │
+└────────────────┘   domain + EF Core
+        │
+        ▼
+┌────────────────┐
+│   PostgreSQL   │
+└────────────────┘
+```
+
+Asynchronous flow, triggered by Application after an order is created or its status changes:
+
+```
+┌────────────────┐
+│  Application   │
+└────────────────┘   publishes OrderCreated / OrderStatusChanged
+        │
+        ▼
+┌────────────────┐
+│    RabbitMQ    │
+└────────────────┘   planned
+        │
+        ▼
+┌────────────────┐
+│     Redis      │
+└────────────────┘   planned — order-by-status cache,
+                      invalidated by the queue consumer
+```
 
 ## Stack
 
 - **.NET 10** / C#
 - **PostgreSQL** via Docker Compose
-- **EF Core 10** + Npgsql, mapping explícito via Fluent API (`IEntityTypeConfiguration`)
-- **Wolverine** — CQRS (Command/Query handlers) e mensageria no mesmo framework, open source
-- **Mapster** — mapping DTO ↔ Command/Domain, por convenção e explícito (`IRegister` + `Scan`)
-- **RabbitMQ** (planejado) — fila assíncrona
-- **OpenTelemetry** (planejado) — tracing/metrics/logs
-- **Testcontainers** (planejado) — testes de integração contra Postgres/RabbitMQ reais
+- **EF Core 10** + Npgsql, explicit mapping via Fluent API (`IEntityTypeConfiguration`)
+- **Wolverine** — CQRS (Command/Query handlers) and messaging in a single open-source framework
+- **Mapster** — DTO ↔ Command/Domain mapping, convention-based and explicit (`IRegister` + `Scan`)
+- **RabbitMQ** (planned) — async queue
+- **Redis** (planned) — cache-aside for orders by status, invalidated via a queue event
+- **OpenTelemetry** (planned) — tracing/metrics/logs
+- **Testcontainers** (planned) — integration tests against real Postgres/RabbitMQ
 
 ## Roadmap
 
-### Concluído
+### Done
 
-- [x] Estrutura da solution (`.slnx`, `src/Api`, `src/Application`, `src/Infrastructure`)
-- [x] Domínio `Order` — modelo rico (setters privados, factory method, regras de negócio via método)
-- [x] Mapping EF Core explícito (nome de tabela/coluna, precisão decimal, conversão de enum, índice)
-- [x] Postgres via `docker-compose.yml` com volume persistente
-- [x] Primeira migration aplicada, round-trip validado ponta a ponta (endpoint temporário)
-- [x] Repositório Git + GitHub configurados
-- [x] CQRS com Wolverine — `CreateOrder` (Command) e `GetOrder` (Query) reais, substituindo os endpoints temporários
-- [x] Mapper DTO ↔ Command/Domain com Mapster — mapeamento por convenção e explícito (`OrderReference` calculado via `IRegister`)
+- [x] Solution structure (`.slnx`, `src/Api`, `src/Application`, `src/Infrastructure`)
+- [x] `Order` domain model — rich model (private setters, factory method, business rules enforced through methods)
+- [x] Explicit EF Core mapping (table/column names, decimal precision, enum conversion, index)
+- [x] Postgres via `docker-compose.yml` with a persistent volume
+- [x] First migration applied, end-to-end round trip validated (temporary endpoint)
+- [x] Git repository + GitHub set up
+- [x] CQRS with Wolverine — real `CreateOrder` (Command) and `GetOrder` (Query), replacing the temporary endpoints
+- [x] DTO ↔ Command/Domain mapper with Mapster — convention-based and explicit mapping (`OrderReference` computed via `IRegister`)
 
-### Planejado
+### Planned
 
-- [ ] Fila assíncrona (RabbitMQ via transporte do Wolverine) — evento publicado a cada mudança de estado do pedido
-- [ ] Observability — OpenTelemetry (traces, metrics, logs) + dashboard (Grafana/Seq, a definir)
-- [ ] Resiliência — Polly (retry/circuit breaker) no consumer da fila
-- [ ] Autenticação — JWT Bearer + Keycloak (não ASP.NET Core Identity — ver decisão técnica abaixo)
-- [ ] Testes de integração com Testcontainers (Postgres/RabbitMQ reais, sem mock)
-- [ ] Documentação de API — OpenAPI + Scalar
-- [ ] CI — GitHub Actions (build, test, publish de imagem)
-- [ ] Containerização completa via Docker Compose (API + infra num único `up`)
-- [ ] Configuração de assistente de IA no repositório (`CLAUDE.md` / `.github/copilot-instructions.md`) — contexto do projeto documentado para ferramentas de IA (Claude, Copilot, Cursor)
-- [ ] Feature de IA dentro da aplicação (integração com LLM) — escopo exato a definir
+- [ ] Async queue (RabbitMQ via Wolverine's transport) — `OrderCreated`/`OrderStatusChanged` events published on order creation and status changes
+- [ ] Redis read cache — `GetOrdersByStatus` with cache-aside, invalidated by the queue consumer on status change (demonstrates the pattern; the project's data volume doesn't call for a real performance win)
+- [ ] Observability — OpenTelemetry (traces, metrics, logs) + dashboard (Grafana or Seq, TBD)
+- [ ] Resilience — Polly (retry/circuit breaker) on the queue consumer
+- [ ] Authentication — JWT Bearer + Keycloak (not ASP.NET Core Identity — see technical decisions below)
+- [ ] Integration tests with Testcontainers (real Postgres/RabbitMQ, no mocks)
+- [ ] API documentation — OpenAPI + Scalar
+- [ ] CI — GitHub Actions (build, test, publish image)
+- [ ] Full containerization via Docker Compose (API + infra in a single `up`)
+- [ ] AI assistant configuration in the repo (`CLAUDE.md` / `.github/copilot-instructions.md`) — project context documented for AI tools (Claude, Copilot, Cursor)
+- [ ] AI-powered feature inside the application (LLM integration) — exact scope TBD
+- [ ] Public deployment (Fly.io/Render/Azure free tier) — live Swagger UI
+- [ ] Problem Details (RFC 7807) — standardized error responses instead of raw stack traces
+- [ ] Health checks (`/health`) — Postgres/RabbitMQ liveness, wired into Docker healthcheck
+- [ ] ADRs (`docs/adr/`) — technical decisions formalized as numbered Architecture Decision Records
+- [ ] Visual README — embedded architecture diagram (Mermaid), Swagger screenshots
 
-## Decisões técnicas
+## Technical decisions
 
 ### CQRS
 
-Separação lógica entre escrita e leitura, mesmo banco (Postgres) para os dois:
+Logical separation between writes and reads, same database (Postgres) for both:
 
-- **Command side**: `DbContext` rastreado, `SaveChanges` normal.
-- **Query side**: `AsNoTracking()` + projeção direto para DTO, sem overhead de tracking.
+- **Command side**: tracked `DbContext`, regular `SaveChanges`.
+- **Query side**: `AsNoTracking()` + projection straight to a DTO, no tracking overhead.
 
-**Evolução natural**: separar fisicamente o banco de escrita (normalizado) do banco de leitura (denormalizado, otimizado para consulta), sincronizados via evento assíncrono publicado na fila a cada mudança de estado. Combina bem com Event Sourcing. Fora do escopo deste projeto por complexidade operacional (dois bancos + sincronização), mas é o próximo passo natural caso o domínio crescesse para exigir escala de leitura muito maior que a de escrita.
+**Natural next step**: physically split the write database (normalized) from the read database (denormalized, query-optimized), kept in sync via an async event published to the queue on every state change. Pairs well with Event Sourcing. Out of scope here given the operational cost of running two databases in sync, but it's the natural evolution if the domain ever needed read scale far beyond its write volume.
 
-### Por que Wolverine em vez de MediatR/MassTransit
+### Why Wolverine instead of MediatR/MassTransit
 
-MediatR e MassTransit passaram para modelo de licenciamento comercial. Wolverine cobre CQRS e mensageria no mesmo framework, open source, com suporte oficial a `net10.0`.
+MediatR and MassTransit both moved to a commercial licensing model. Wolverine covers CQRS and messaging in a single open-source framework, with official `net10.0` support.
 
-### Por que Mapster em vez de AutoMapper
+### Why Mapster instead of AutoMapper
 
-AutoMapper (mesmo autor do MediatR) também passou para modelo de licenciamento comercial. Mapster é open source, baseado em source generator (sem overhead de reflection em runtime), com mapeamento por convenção e configuração explícita via `IRegister` quando os nomes de propriedade divergem.
+AutoMapper (same author as MediatR) also went commercial. Mapster is genuinely open source, source-generator based (no runtime reflection overhead), with convention-based mapping and explicit `IRegister` configuration when property names diverge.
 
-### Por que não ASP.NET Core Identity
+### Why not ASP.NET Core Identity
 
-Scaffold pesado (tabelas próprias, cookie-based por padrão) para o que o projeto precisa. Autenticação via JWT Bearer + Keycloak demonstra OAuth2/OIDC real, mais alinhado com o que se vê em produção.
+Too much scaffolding (its own tables, cookie-based by default) for what this project needs. JWT Bearer + Keycloak demonstrates real OAuth2/OIDC, closer to what production systems actually use.
 
-## Como rodar (estado atual)
+## Running it (current state)
 
 ```bash
-docker compose up -d          # sobe o Postgres
+docker compose up -d          # starts Postgres
 dotnet ef database update --project src/OrderFlow.Infrastructure --startup-project src/OrderFlow.Api
 dotnet run --project src/OrderFlow.Api
 ```
 
-Instruções completas de setup (fila, observability, etc.) serão adicionadas conforme cada peça for implementada.
+Full setup instructions (queue, observability, etc.) will be added as each piece ships.
