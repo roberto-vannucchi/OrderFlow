@@ -8,6 +8,7 @@ Projeto de portfólio em .NET — domínio simples (pedidos), stack rica em tecn
 - **PostgreSQL** via Docker Compose
 - **EF Core 10** + Npgsql, mapping explícito via Fluent API (`IEntityTypeConfiguration`)
 - **Wolverine** — CQRS (Command/Query handlers) e mensageria no mesmo framework, open source
+- **Mapster** — mapping DTO ↔ Command/Domain, por convenção e explícito (`IRegister` + `Scan`)
 - **RabbitMQ** (planejado) — fila assíncrona
 - **OpenTelemetry** (planejado) — tracing/metrics/logs
 - **Testcontainers** (planejado) — testes de integração contra Postgres/RabbitMQ reais
@@ -23,10 +24,7 @@ Projeto de portfólio em .NET — domínio simples (pedidos), stack rica em tecn
 - [x] Primeira migration aplicada, round-trip validado ponta a ponta (endpoint temporário)
 - [x] Repositório Git + GitHub configurados
 - [x] CQRS com Wolverine — `CreateOrder` (Command) e `GetOrder` (Query) reais, substituindo os endpoints temporários
-
-### Em andamento
-
-- [ ] Mapper entre DTO (request/response) e Command/Domain
+- [x] Mapper DTO ↔ Command/Domain com Mapster — mapeamento por convenção e explícito (`OrderReference` calculado via `IRegister`)
 
 ### Planejado
 
@@ -55,6 +53,10 @@ Separação lógica entre escrita e leitura, mesmo banco (Postgres) para os dois
 ### Por que Wolverine em vez de MediatR/MassTransit
 
 MediatR e MassTransit passaram para modelo de licenciamento comercial. Wolverine cobre CQRS e mensageria no mesmo framework, open source, com suporte oficial a `net10.0`.
+
+### Por que Mapster em vez de AutoMapper
+
+AutoMapper (mesmo autor do MediatR) também passou para modelo de licenciamento comercial. Mapster é open source, baseado em source generator (sem overhead de reflection em runtime), com mapeamento por convenção e configuração explícita via `IRegister` quando os nomes de propriedade divergem.
 
 ### Por que não ASP.NET Core Identity
 
