@@ -12,8 +12,10 @@
 
     <ItemGroup>
       <PackageReference Include="Mapster" Version="10.0.12" />
-      <PackageReference Include="WolverineFx" Version="6.36.0" />
-      <PackageReference Include="WolverineFx.RuntimeCompilation" Version="6.36.0" />
+      <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="10.0.12" />
+      <PackageReference Include="WolverineFx" Version="6.38.0" />
+      <PackageReference Include="WolverineFx.RabbitMQ" Version="6.38.0" />
+      <PackageReference Include="WolverineFx.RuntimeCompilation" Version="6.38.0" />
     </ItemGroup>
 
 </Project>
