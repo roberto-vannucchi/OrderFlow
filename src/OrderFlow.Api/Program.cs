@@ -1,28 +1,43 @@
 using Mapster;
+using Wolverine;
+using Wolverine.RabbitMQ;
 using Microsoft.EntityFrameworkCore;
 using OrderFlow.Application.Commands;
 using OrderFlow.Application.Queries;
+using OrderFlow.Infrastructure.Enums;
 using OrderFlow.Infrastructure.Persistence;
-using Wolverine;
 
 var builder = WebApplication.CreateBuilder(args);
+
+var rabbitMqConnectionString = builder.Configuration.GetConnectionString("RabbitMq");
+if  (string.IsNullOrWhiteSpace(rabbitMqConnectionString))
+    throw new InvalidOperationException("RabbitMq connection string not set");
 
 builder.Host.UseWolverine(opts =>
 {
     opts.Discovery.IncludeAssembly(typeof(CreateOrderCommand).Assembly);
     opts.CodeGeneration.AlwaysUseServiceLocationFor<OrderFlowDbContext>();
+    opts.UseRabbitMq(rabbitMqConnectionString).AutoProvision();
+    opts.PublishMessage<OrderCreatedEvent>().ToRabbitQueue("order-created");
+    opts.ListenToRabbitQueue("order-created");
 });
 
 TypeAdapterConfig.GlobalSettings.Scan(typeof(CreateOrderCommand).Assembly);
 
-// Add services to the container.
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
 builder.Services.AddDbContext<OrderFlowDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("OrderFlowDb")));
+    options.UseNpgsql(builder.Configuration.GetConnectionString("OrderFlowDb"))
+);
+
+builder.Services.AddStackExchangeRedisCache(options =>
+{
+    options.Configuration = builder.Configuration.GetConnectionString("Redis");
+});
 
 var app = builder.Build();
+
+
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -46,6 +61,13 @@ app.MapGet("/orders/{id:guid}", async (Guid id, IMessageBus messageBus) =>
     var query = new GetOrderQuery(id);
     var order = await messageBus.InvokeAsync<OrderResponse?>(query);
     return order == null ? Results.NotFound() : Results.Ok(order);
+});
+
+app.MapGet("/orders", async (OrderStatus status, IMessageBus messageBus) =>
+{
+    var query = new GetOrdersByStatusQuery(status);
+    var orders = await messageBus.InvokeAsync<List<OrderResponse>>(query);
+    return Results.Ok(orders);
 });
 
 app.Run();

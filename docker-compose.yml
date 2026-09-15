@@ -10,5 +10,27 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
+  rabbitmq:
+    image: rabbitmq:4.3-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest@123
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+  
+  redis:
+    image: redis:8.10-alpine
+    ports:
+      - "6379:6379"
+
+  redisinsight:
+    image: redis/redisinsight:3.8
+    ports:
+      - "5540:5540"
+    volumes:
+      - redisinsight_data:/data
+
 volumes:
   postgres_data:
+  redisinsight_data:
