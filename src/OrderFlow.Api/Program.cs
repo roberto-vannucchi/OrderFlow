@@ -1,5 +1,6 @@
-using Mapster;
 using Microsoft.EntityFrameworkCore;
+using Mapster;
+using Scalar.AspNetCore;
 using OrderFlow.Api.Configurations;
 using OrderFlow.Application.Commands;
 using OrderFlow.Infrastructure.Persistence;
@@ -28,6 +29,7 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
+    app.MapScalarApiReference();   
 }
 
 app.UseHttpsRedirection();

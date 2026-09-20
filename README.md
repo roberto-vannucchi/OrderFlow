@@ -82,7 +82,9 @@ Asynchronous flow, triggered by Application after an order is created:
 ### Planned
 
 - [ ] Global exception handling middleware (`IExceptionHandler`) + Problem Details (RFC 7807) — standardized error responses instead of raw stack traces
-- [ ] Observability — OpenTelemetry (traces, metrics, logs) + dashboard (Grafana or Seq, TBD)
+- [ ] Interactive API docs (Scalar) — UI on top of the existing `/openapi/v1.json`, replacing manual `curl` testing
+- [ ] Structured logging — Serilog with request-scoped enrichment (CorrelationId/TraceId), console + file sink; later bridged into OpenTelemetry once tracing lands
+- [ ] Observability — OpenTelemetry (traces, metrics) + dashboard (Grafana or Seq, TBD)
 - [ ] Resilience — Polly (retry/circuit breaker) on the queue consumer
 - [ ] Authentication — JWT Bearer + Keycloak (not ASP.NET Core Identity — see technical decisions below)
 - [ ] Integration tests with Testcontainers (real Postgres/RabbitMQ, no mocks)
