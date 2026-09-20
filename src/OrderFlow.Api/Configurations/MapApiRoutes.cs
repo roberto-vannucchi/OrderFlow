@@ -32,5 +32,23 @@ public static class MapApiRoutes
             var orders = await messageBus.InvokeAsync<List<OrderResponse>>(query);
             return Results.Ok(orders);
         });
+        
+        app.MapPost("/orders/{id:guid}/confirm", async (Guid id, IMessageBus messageBus) =>
+        {
+            var success = await messageBus.InvokeAsync<bool>(new ConfirmOrderCommand(id));
+            return success ? Results.NoContent() : Results.NotFound();
+        });
+
+        app.MapPost("/orders/{id:guid}/cancel", async (Guid id, IMessageBus messageBus) =>
+        {
+            var success = await messageBus.InvokeAsync<bool>(new CancelOrderCommand(id));
+            return success ? Results.NoContent() : Results.NotFound();
+        });
+
+        app.MapPost("/orders/{id:guid}/complete", async (Guid id, IMessageBus messageBus) =>
+        {
+            var success = await messageBus.InvokeAsync<bool>(new CompleteOrderCommand(id));
+            return success ? Results.NoContent() : Results.NotFound();
+        });
     }
 }
