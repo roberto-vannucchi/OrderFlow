@@ -49,7 +49,7 @@ Asynchronous flow, triggered by Application after an order is created:
                       by the consumer, no TTL
 ```
 
-`OrderStatusChanged` (triggered by confirming/cancelling an order) is planned next — it will extend this same flow to keep both the old and new status caches in sync.
+`OrderStatusChanged` (published by `ConfirmOrder`, `CancelOrder`, and `CompleteOrder`) follows this same flow — the consumer refreshes both the old and new status caches on every transition, keeping the read model in sync without touching the write path.
 
 ## Stack
 
@@ -77,12 +77,14 @@ Asynchronous flow, triggered by Application after an order is created:
 - [x] DTO ↔ Command/Domain mapper with Mapster — convention-based and explicit mapping (`OrderReference` computed via `IRegister`)
 - [x] Async queue (RabbitMQ via Wolverine's transport) — `OrderCreated` published on order creation, consumed by the same process
 - [x] Redis read cache — `GetOrdersByStatus` refreshed by the queue consumer, no TTL (demonstrates the pattern; the project's data volume doesn't call for a real performance win)
+- [x] Full order lifecycle — `ConfirmOrder`/`CancelOrder`/`CompleteOrder` commands (`Pending → Confirmed → Completed`, `Cancelled` from any non-completed state) + `OrderStatusChanged` event, keeping both the old and new status caches in sync on every transition (invalid transitions currently surface as raw 500s — tracked by the exception-handling item below)
 
 ### Planned
 
-- [ ] `ConfirmOrder`/`CancelOrder` commands + `OrderStatusChanged` event — extends the cache refresh to status transitions, not just creation
 - [ ] Global exception handling middleware (`IExceptionHandler`) + Problem Details (RFC 7807) — standardized error responses instead of raw stack traces
-- [ ] Observability — OpenTelemetry (traces, metrics, logs) + dashboard (Grafana or Seq, TBD)
+- [ ] Interactive API docs (Scalar) — UI on top of the existing `/openapi/v1.json`, replacing manual `curl` testing
+- [ ] Structured logging — Serilog with request-scoped enrichment (CorrelationId/TraceId), console + file sink; later bridged into OpenTelemetry once tracing lands
+- [ ] Observability — OpenTelemetry (traces, metrics) + dashboard (Grafana or Seq, TBD)
 - [ ] Resilience — Polly (retry/circuit breaker) on the queue consumer
 - [ ] Authentication — JWT Bearer + Keycloak (not ASP.NET Core Identity — see technical decisions below)
 - [ ] Integration tests with Testcontainers (real Postgres/RabbitMQ, no mocks)
@@ -111,6 +113,18 @@ Logical separation between writes and reads, same database (Postgres) for both:
 ### Why the Redis cache has no TTL
 
 The `orders:status:{status}` cache is fully event-driven: the queue consumer refreshes it on every `OrderCreated` event, so there's no reason to expire it on a timer — a TTL would just force an unnecessary Postgres read even when nothing changed. Trade-off: if an event were ever lost or failed silently, the cache would stay stale indefinitely with no self-healing. Acceptable here because the queue is the only writer and failures are visible in the RabbitMQ dead-letter queue.
+
+### Cache refresh: full re-query vs targeted patch
+
+On every status transition (`OrderCreated`, `OrderStatusChanged`), the consumer re-queries all orders for the affected status and rewrites the whole cache entry, instead of patching a single order in and out of the cached lists by Id.
+
+A targeted patch would avoid two full table scans per event, but breaks down under real message-queue semantics:
+
+- **Not atomic** — the cache entry is a single JSON blob behind `IDistributedCache`, so a patch means read-modify-write. Two events touching the same status concurrently would race and silently lose one of the writes.
+- **Not idempotent** — RabbitMQ delivers at-least-once. A replayed patch either double-adds an entry or needs its own dedupe logic; a full re-query is naturally idempotent, since it's just a snapshot of current DB state.
+- **Order-dependent** — with multiple competing consumers (see the Worker Service / scale-out items below), patches applied out of order would permanently corrupt the cache. Full re-query is order-independent by construction.
+
+Acceptable trade-off at this project's scale. If cache size or query cost ever became a real bottleneck, the correct fix isn't patching the JSON list — it's switching that cache entry to a Redis Hash (`HSET`/`HDEL`, both atomic) keyed by order Id, which means dropping down from `IDistributedCache` to `IConnectionMultiplexer` directly.
 
 ### Why Wolverine instead of MediatR/MassTransit
 

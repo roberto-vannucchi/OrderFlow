@@ -34,6 +34,14 @@ public sealed class Order
 
         Status = OrderStatus.Confirmed;
     }
+    
+    public void Complete()
+    {
+        if (Status != OrderStatus.Confirmed)
+            throw new InvalidOperationException($"Cannot complete order in status {Status}.");
+
+        Status = OrderStatus.Completed;
+    }
 
     public void Cancel()
     {
