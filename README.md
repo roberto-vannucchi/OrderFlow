@@ -78,11 +78,11 @@ Asynchronous flow, triggered by Application after an order is created:
 - [x] Async queue (RabbitMQ via Wolverine's transport) — `OrderCreated` published on order creation, consumed by the same process
 - [x] Redis read cache — `GetOrdersByStatus` refreshed by the queue consumer, no TTL (demonstrates the pattern; the project's data volume doesn't call for a real performance win)
 - [x] Full order lifecycle — `ConfirmOrder`/`CancelOrder`/`CompleteOrder` commands (`Pending → Confirmed → Completed`, `Cancelled` from any non-completed state) + `OrderStatusChanged` event, keeping both the old and new status caches in sync on every transition (invalid transitions currently surface as raw 500s — tracked by the exception-handling item below)
+- [x] Interactive API docs (Scalar) — UI on top of the existing `/openapi/v1.json`, replacing manual `curl` testing
 
 ### Planned
 
 - [ ] Global exception handling middleware (`IExceptionHandler`) + Problem Details (RFC 7807) — standardized error responses instead of raw stack traces
-- [ ] Interactive API docs (Scalar) — UI on top of the existing `/openapi/v1.json`, replacing manual `curl` testing
 - [ ] Structured logging — Serilog with request-scoped enrichment (CorrelationId/TraceId), console + file sink; later bridged into OpenTelemetry once tracing lands
 - [ ] Observability — OpenTelemetry (traces, metrics) + dashboard (Grafana or Seq, TBD)
 - [ ] Resilience — Polly (retry/circuit breaker) on the queue consumer
@@ -148,7 +148,7 @@ dotnet run --project src/OrderFlow.Api
 
 Once it's up:
 
-- API: `https://localhost:7048` (raw OpenAPI spec at `/openapi/v1.json`; interactive docs via Scalar still on the roadmap)
+- API: `https://localhost:7048` (interactive docs via Scalar at `/scalar/v1`, raw OpenAPI spec at `/openapi/v1.json`)
 - RabbitMQ management UI: `http://localhost:15672` (`guest`/`guest@123`)
 - RedisInsight: `http://localhost:5540` (add the `redis:6379` database on first run — use the service name `redis`, not `localhost`, since it runs inside the same Docker network)
 

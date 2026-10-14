@@ -2,12 +2,15 @@ using Microsoft.EntityFrameworkCore;
 using Mapster;
 using Scalar.AspNetCore;
 using OrderFlow.Api.Configurations;
+using OrderFlow.Api.Middlewares;
 using OrderFlow.Application.Commands;
 using OrderFlow.Infrastructure.Persistence;
+using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.ConfigureRabbitMq();
+builder.ConfigureSerilog();
 
 TypeAdapterConfig.GlobalSettings.Scan(typeof(CreateOrderCommand).Assembly);
 
@@ -23,6 +26,8 @@ builder.Services.AddStackExchangeRedisCache(options =>
 });
 
 var app = builder.Build();
+app.UseCorrelationIdMiddleware();
+app.UseSerilogRequestLogging();
 
 
 // Configure the HTTP request pipeline.

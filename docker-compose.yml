@@ -31,6 +31,23 @@ services:
     volumes:
       - redisinsight_data:/data
 
+  loki:
+    image: grafana/loki:3.7.8
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - loki_data:/loki
+
+  grafana:
+    image: grafana/grafana:13.2.2
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+
 volumes:
   postgres_data:
   redisinsight_data:
+  loki_data:
+  grafana_data:
